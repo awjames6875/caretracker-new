@@ -1,0 +1,477 @@
+// prisma/schema.prisma
+// CareTracker - SafeHarbor Behavioral Health
+// Full schema from PRD v2, Section 5
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// ORGANIZATIONS & MULTI-TENANCY
+// ============================================================================
+
+model Organization {
+  id                    String      @id @default(cuid())
+  name                  String
+  type                  String      @default("provider") // provider | partner
+  subscriptionTier      String?     @default("free") // free | basic | professional | enterprise
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  billingEmail          String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  partners              Partner[]
+  programs              Program[]
+  workers               Worker[]
+  children              Child[]
+  observations          Observation[]
+  clinicalNotes         ClinicalNote[]
+  treatmentGoals        TreatmentGoal[]
+  auditLogs             AuditLog[]
+
+  @@index([type])
+}
+
+// ============================================================================
+// PARTNER ORGANIZATIONS
+// ============================================================================
+
+model Partner {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  name                  String
+  contactName           String?
+  contactEmail          String?
+  contactPhone          String?
+  address               String?
+  city                  String?
+  state                 String?
+  zipCode               String?
+  programType           String      // gym | community_center | after_school | daycare | church | other
+  status                String      @default("onboarding") // onboarding | active | inactive | archived
+  enrolledChildrenCount Int         @default(0)
+  totalBillableHours    Int         @default(0)
+  startDate             DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  programs              Program[]
+  workers               Worker[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+// ============================================================================
+// PROGRAMS
+// ============================================================================
+
+model Program {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  partnerId             String
+  name                  String
+  description           String?
+  ageRange              String
+  groupSize             Int         @default(8)
+  durationWeeks         Int         @default(8)
+  dailyDurationMinutes  Int         @default(180)
+  status                String      @default("active") // active | inactive | archived
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  createdBy             String?
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  partner               Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  curriculums           Curriculum[]
+  dailySchedules        DailySchedule[]
+  treatmentGoals        TreatmentGoal[]
+  children              ChildProgramEnrollment[]
+  observations          Observation[]
+  clinicalNotes         ClinicalNote[]
+  weeklyActivities      WeeklyActivity[]
+
+  @@index([organizationId])
+  @@index([partnerId])
+  @@index([status])
+}
+
+// ============================================================================
+// CURRICULUM
+// ============================================================================
+
+model Curriculum {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  programId             String
+  weekNumber            Int
+  theme                 String
+  pillar                String      // physical_development | communication | emotional_regulation | social_skills
+  cuePhrase             String
+  weeklyGoal            String
+  homeLink              String?
+  materials             String[]
+  generatedBy           String?
+  generatedAt           DateTime?
+  approvedAt            DateTime?
+  approvedBy            String?
+  status                String      @default("draft") // draft | approved | published | archived
+  aiPromptUsed          String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  program               Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  weeklyActivities      WeeklyActivity[]
+
+  @@index([organizationId])
+  @@index([programId])
+  @@index([status])
+}
+
+// ============================================================================
+// WEEKLY ACTIVITIES
+// ============================================================================
+
+model WeeklyActivity {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  curriculumId          String
+  programId             String
+  blockNumber           Int         // 1-6
+  dayNumber             Int         // 1-5
+  activityName          String
+  activityDescription   String?
+  facilitatorScript     String?
+  billingCode           String      // H2015-HA, H2014-HA, H2021-HA
+  cueMoments            Json?
+  stationDescriptions   Json?
+  reflectionQuestions   Json?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  curriculum            Curriculum  @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  program               Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([curriculumId])
+  @@index([programId])
+}
+
+// ============================================================================
+// DAILY SCHEDULE (6 mandatory blocks)
+// ============================================================================
+
+model DailySchedule {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  programId             String
+  blockNumber           Int         // 1-6
+  blockName             String
+  timeMinutes           Int
+  billingCode           String
+  activityType          String      // check_in | skill_lesson | physical_activity | break | group_game | reflection
+  location              String?
+  orderSequence         Int         @default(1)
+  createdAt             DateTime    @default(now())
+
+  program               Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, blockNumber])
+  @@index([organizationId])
+  @@index([programId])
+}
+
+// ============================================================================
+// TREATMENT GOAL LIBRARY
+// ============================================================================
+
+model TreatmentGoal {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  programId             String
+  code                  String
+  nameSimple            String
+  category              String      // communication | emotional_regulation | social_skills | physical_development
+  observableBehaviors   String[]
+  successCriteria       String?
+  ageRange              String?
+  relatedActivities     String[]
+  relatedThemes         String[]
+  billingCodes          String[]
+  createdBy             String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  program               Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  childGoals            ChildTreatmentGoal[]
+
+  @@index([organizationId])
+  @@index([programId])
+  @@index([category])
+}
+
+// ============================================================================
+// CHILDREN (PHI ENCRYPTED)
+// ============================================================================
+
+model Child {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  firstName             String      // Encrypted
+  lastName              String      // Encrypted
+  dateOfBirth           DateTime    // Encrypted
+  gender                String?
+  guardianName          String?     // Encrypted
+  guardianPhone         String?     // Encrypted
+  guardianEmail         String?     // Encrypted
+  enrollmentDate        DateTime    @default(now())
+  status                String      @default("active") // active | inactive | withdrawn | archived
+  primaryGoalIds        String[]    @default([])
+  notes                 String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  programEnrollments    ChildProgramEnrollment[]
+  goals                 ChildTreatmentGoal[]
+  observations          Observation[]
+  clinicalNotes         ClinicalNote[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+// ============================================================================
+// CHILD PROGRAM ENROLLMENTS
+// ============================================================================
+
+model ChildProgramEnrollment {
+  id                    String      @id @default(cuid())
+  childId               String
+  programId             String
+  enrollmentDate        DateTime    @default(now())
+  dischargeDate         DateTime?
+  status                String      @default("active")
+  hoursAttended         Int         @default(0)
+  billableHoursLogged   Int         @default(0)
+  createdAt             DateTime    @default(now())
+
+  child                 Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  program               Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, programId])
+  @@index([childId])
+  @@index([programId])
+  @@index([status])
+}
+
+// ============================================================================
+// CHILD TREATMENT GOALS
+// ============================================================================
+
+model ChildTreatmentGoal {
+  id                    String      @id @default(cuid())
+  childId               String
+  goalId                String
+  assignedDate          DateTime    @default(now())
+  priority              Int         @default(1)
+  status                String      @default("active")
+  targetDate            DateTime?
+  progressNotes         String?
+  lastProgressUpdate    DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  child                 Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  goal                  TreatmentGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, goalId])
+  @@index([childId])
+  @@index([goalId])
+  @@index([status])
+}
+
+// ============================================================================
+// WORKERS (Facilitators, Therapists, Admins)
+// ============================================================================
+
+model Worker {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  partnerId             String?
+  firstName             String
+  lastName              String
+  email                 String      @unique
+  phone                 String?     // Encrypted
+  role                  String      // facilitator | therapist | admin | super_admin
+  pin                   String?     // Hashed
+  passwordHash          String
+  passwordSalt          String
+  mfaEnabled            Boolean     @default(false)
+  mfaSecret             String?     // Encrypted
+  status                String      @default("active")
+  lastLoginAt           DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  createdBy             String?
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  partner               Partner?     @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  observations          Observation[]
+  approvedNotes         ClinicalNote[] @relation("ApprovedBy")
+  createdAuditLogs      AuditLog[]
+
+  @@index([organizationId])
+  @@index([partnerId])
+  @@index([role])
+  @@index([email])
+}
+
+// ============================================================================
+// OBSERVATIONS (Real-time facilitator logging)
+// ============================================================================
+
+model Observation {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  programId             String
+  childId               String
+  workerId              String
+  activityBlock         Int         // 1-6
+  activityName          String
+  billingCode           String
+  weekNumber            Int         @default(1)
+  dayNumber             Int         @default(1)
+  outcome               String      // positive | neutral | challenging
+  observedBehaviors     String[]
+  linkedGoalIds         String[]    @default([])
+  notes                 String?
+  colorCardCounts       Json?       // { green: 3, yellow: 1, red: 0 }
+  isBreakthrough        Boolean     @default(false)
+  goalProgressRating    Int?        // 1-5
+  observationDate       DateTime
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  program               Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  child                 Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  worker                Worker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  linkedNotes           ClinicalNote[]
+
+  @@index([organizationId])
+  @@index([programId])
+  @@index([childId])
+  @@index([workerId])
+  @@index([observationDate])
+  @@index([billingCode])
+}
+
+// ============================================================================
+// CLINICAL NOTES (AI-generated SOAP notes)
+// ============================================================================
+
+model ClinicalNote {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  programId             String
+  childId               String
+  observationIds        String[]    @default([])
+  approverWorkerId      String?
+  serviceDate           DateTime
+  billingCodes          String[]    @default([])
+  serviceDuration       Int         @default(180)
+  serviceLocation       String?
+  generatedContent      String
+  editedContent         String?
+  subjective            String?
+  objective             String?
+  assessment            String?
+  plan                  String?
+  progressContext       String?
+  interventionsUsed     String[]    @default([])
+  linkedGoalNames       String[]    @default([])
+  goalProgressData      Json?
+  odmhsasCompliant      Boolean     @default(true)
+  complianceNotes       String?
+  modelVersion          String      @default("gpt-4o")
+  aiGeneratedAt         DateTime?
+  approvalStatus        String      @default("pending") // pending | approved | rejected | archived
+  approvalComments      String?
+  approvedAt            DateTime?
+  exportedToEhr         Boolean     @default(false)
+  ehrExportDate         DateTime?
+  ehrExportSystem       String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  program               Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  child                 Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  approver              Worker?     @relation("ApprovedBy", fields: [approverWorkerId], references: [id], onDelete: SetNull)
+  linkedObservations    Observation[]
+
+  @@index([organizationId])
+  @@index([programId])
+  @@index([childId])
+  @@index([approvalStatus])
+  @@index([serviceDate])
+}
+
+// ============================================================================
+// AUDIT LOG (HIPAA — append only, never delete)
+// ============================================================================
+
+model AuditLog {
+  id                    String      @id @default(cuid())
+  organizationId        String
+  userId                String
+  action                String      // view | create | update | delete | export | approve
+  resourceType          String      // child | observation | clinical_note | report | worker
+  resourceId            String
+  resourceDescription   String?
+  ipAddress             String?
+  userAgent             String?
+  timestamp             DateTime    @default(now())
+  changes               Json?
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                  Worker      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType])
+  @@index([timestamp])
+}
+
+// ============================================================================
+// SUBSCRIPTIONS (Phase 3 — SaaS billing)
+// ============================================================================
+
+model Subscription {
+  id                    String      @id @default(cuid())
+  organizationId        String      @unique
+  stripeSubscriptionId  String      @unique
+  plan                  String      // starter | growth | enterprise
+  status                String      // active | past_due | canceled
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  canceledAt            DateTime?
+  amount                Int         // Cents
+  currency              String      @default("USD")
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
