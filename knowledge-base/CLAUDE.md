@@ -1,3 +1,87 @@
+# CLAUDE.md — The Spec Room
+
+**Location:** `knowledge-base/`
+
+---
+
+## Purpose of This Room
+
+This folder contains **feature specifications and domain knowledge** for CareTracker. Everything here defines WHAT we're building and WHY — not HOW (that's in `src/`).
+
+---
+
+## ⚠️ Critical Rule
+
+**All specs must describe observable behaviors, not clinical assessments.**
+
+| ❌ Wrong | ✅ Right |
+|----------|----------|
+| "Track anxiety symptoms" | "Log when a kid says they feel worried" |
+| "Document dysregulation episodes" | "Note when a kid needed a break" |
+| "Assess emotional state" | "Record the color card the kid chose" |
+
+Staff are logging **what they see**, not diagnosing anything.
+
+---
+
+## What Goes Here
+
+### Behavior Definitions (`behavioral-strategies.md`)
+- What each color card means
+- Common behaviors to log (positive and challenging)
+- Simple language for each behavior
+
+### Activity Lists (`body-brain-activities.md`, `jtb-activities.md`)
+- Activities for each program block
+- Equipment needed
+- How to run each activity
+
+### Compliance Guidelines (`compliance-guidelines.md`)
+- Billing code mappings (for SafeHarbor, not shown to staff)
+- Required documentation for audits
+- Privacy rules
+
+### Documentation Templates (`documentation-templates.md`)
+- How daily logs should look
+- Report formats
+
+---
+
+## Writing Specs in This Room
+
+### Rule 1: Observable Only
+
+Every behavior we track must be something staff can **see or hear**:
+
+✅ "Kid raised their hand before speaking"
+✅ "Kid took 3 deep breaths when frustrated"
+✅ "Kid helped another kid pick up equipment"
+
+❌ "Kid felt anxious" (can't see feelings)
+❌ "Kid was triggered" (clinical term)
+❌ "Kid showed signs of ADHD" (diagnosis)
+
+### Rule 2: Simple Language
+
+Write specs at a 5th-grade reading level. Staff will read these.
+
+### Rule 3: Ground in Partner Feedback
+
+Before adding a new behavior to track, check `partner-feedback/` — did a real partner ask for this?
+
+---
+
+## File Index
+
+| File | Purpose |
+|------|---------|
+| `behavioral-strategies.md` | Color cards, de-escalation steps |
+| `body-brain-activities.md` | Movement activities for GYM block |
+| `jtb-activities.md` | Just The Brethren program activities |
+| `compliance-guidelines.md` | Billing rules (internal only) |
+| `documentation-templates.md` | Report formats |
+| `API-reference.md` | API endpoint documentation |
+
 <claude-mem-context>
 # Recent Activity
 

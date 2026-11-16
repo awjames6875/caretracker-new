@@ -28,6 +28,7 @@ model Organization {
 
   partners              Partner[]
   programs              Program[]
+  curriculums           Curriculum[]
   workers               Worker[]
   children              Child[]
   observations          Observation[]

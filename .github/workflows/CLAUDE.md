@@ -1,3 +1,80 @@
+# CLAUDE.md — The Workflow Room
+
+**Location:** `.github/workflows/`
+
+---
+
+## Purpose of This Room
+
+This room owns CI/CD automation for CareTracker.
+
+Use this file for workflow behavior, checks, secrets handling, and deployment safety.
+
+---
+
+## Blocking Rules
+
+1. Read `global-constraints.md` before changing workflow behavior that can affect user-facing output.
+2. Keep workflows minimal and deterministic.
+3. Never print secrets, tokens, or sensitive payloads.
+4. Prefer explicit step names and pinned action major versions.
+
+---
+
+## Current Workflow Map
+
+| File | Purpose |
+|---|---|
+| `test.yml` | test and validation checks |
+| `policy-check.yml` | policy gate enforcement |
+| `security-audit.yml` | dependency/security scanning |
+| `playwright.yml` | end-to-end/browser checks |
+| `deploy.yml` | production deployment on `main` |
+
+---
+
+## Change Rules for Workflows
+
+1. Keep one concern per workflow where possible.
+2. Use `npm ci` for CI installs (never `npm install`).
+3. Put policy checks before heavy build/deploy steps.
+4. Keep branch triggers explicit (avoid broad wildcards unless needed).
+5. Use repository/environment secrets only; no hardcoded credentials.
+
+---
+
+## Required Gate Order
+
+For production deployment flows, keep this order unless there is a documented reason to change it:
+
+1. `npm run policy-check`
+2. `npm run lint`
+3. `npm run type-check`
+4. `npm run build`
+5. deploy
+
+This matches the current intent in `deploy.yml`.
+
+---
+
+## Efficiency Guidelines
+
+1. Avoid duplicate setup steps across jobs if a reusable workflow can be used.
+2. Enable caching where stable (`actions/setup-node` with npm cache).
+3. Keep timeout limits realistic to fail fast on stuck jobs.
+4. Prefer targeted matrices only when needed.
+
+---
+
+## PR Safety Checklist
+
+Before merging workflow changes:
+
+1. Confirm triggers are correct (`push`, `pull_request`, branch filters).
+2. Confirm required checks still run for protected branches.
+3. Confirm no secret values are echoed.
+4. Confirm failure messages are clear and actionable.
+
 <claude-mem-context>
 # Recent Activity
 

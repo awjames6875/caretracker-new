@@ -1,3 +1,131 @@
+# CLAUDE.md — The Data Room
+
+**Location:** `prisma/`
+
+---
+
+## Purpose of This Room
+
+This folder contains the **database schema, migrations, and seed data** for CareTracker. Everything about how we store and structure data lives here.
+
+---
+
+## ⚠️ Critical Rule
+
+**The database stores simple behavior logs, not medical records.**
+
+| ❌ Wrong | ✅ Right |
+|----------|----------|
+| `diagnosis` field | No diagnosis fields at all |
+| `clinicalNotes` table | `behaviorLogs` table |
+| `treatmentPlan` | `goals` (simple, observable) |
+| `patient` | `kid` or `child` |
+
+---
+
+## Schema Philosophy
+
+### Keep It Simple
+
+Staff are logging:
+- Which kid
+- What block (1–6)
+- What color card (Green/Yellow/Red)
+- What behaviors they saw (checkboxes)
+- Optional: a short plain-language note
+
+That's it. No complex medical charting.
+
+### Core Tables
+
+| Table | Purpose |
+|-------|---------|
+| `Kid` | Children in programs |
+| `Program` | Activity programs (Body & Brain, JTB, etc.) |
+| `Session` | A single day of a program |
+| `Block` | One of 6 daily blocks |
+| `Observation` | Staff's behavior log for one kid in one block |
+| `Worker` | Staff members (facilitators, admins) |
+| `Partner` | Organizations (daycares, gyms) |
+
+### Observation Model (The Core)
+
+```prisma
+model Observation {
+  id        String    @id @default(cuid())
+
+  // Who and when
+  kidId     String
+  blockId   String
+  workerId  String
+  createdAt DateTime  @default(now())
+
+  // What they saw
+  colorCard ColorCard  // GREEN, YELLOW, RED
+  behaviors String[]   // Array of behavior codes
+  note      String?    // Optional short note
+
+  // Soft delete
+  isActive  Boolean   @default(true)
+}
+```
+
+---
+
+## Migration Guidelines
+
+### Naming
+- **NNN_snake_case** — `001_init`, `002_add_observations`, `003_add_partners`
+- Sequential numbering, descriptive names
+
+### Rules
+1. **Never delete columns** — add new ones, mark old ones deprecated
+2. **Soft deletes only** — `isActive: false`, never `DELETE`
+3. **Always add indexes** for foreign keys and common query fields
+4. **Test migrations** on seed data before applying to production
+
+### Commands
+```bash
+npm run db:migrate   # Apply pending migrations
+npm run db:seed      # Seed with test data
+npm run db:studio    # Visual database browser
+```
+
+---
+
+## Seed Data
+
+Seed data lives in `prisma/seed.ts`. It should include:
+
+- 2–3 test partners (daycare, gym, nonprofit)
+- 5–10 test kids per partner
+- 1–2 test programs with sessions
+- Sample observations across all color cards
+
+**Use realistic but fake names** — never real kid data in seed files.
+
+---
+
+## Privacy Rules
+
+1. **Kid names are PII** — never log them to console or include in URLs
+2. **Soft deletes only** — audit trail required for Medicaid compliance
+3. **RLS policies required** — every table needs Supabase Row Level Security
+
+---
+
+## Billing Code Mapping (Internal Only)
+
+Staff never see billing codes. The schema connects blocks to codes automatically:
+
+| Block Type | Billing Code | Stored In |
+|------------|--------------|-----------|
+| Check-in, Break, Reflection | H2015-HA | `Block.billingCode` |
+| Skill Lesson, Stations | H2014-HA | `Block.billingCode` |
+| GYM Activity | H2021-HA | `Block.billingCode` |
+
+Mapping is defined in `src/lib/billing-codes.ts`.
+
 <claude-mem-context>
 # Recent Activity
 
