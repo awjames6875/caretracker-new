@@ -62,9 +62,7 @@ Each file should follow this structure:
 
 | Partner | Type | Key Contact | Notes |
 |---------|------|-------------|-------|
-| TBD | Daycare | — | — |
-| TBD | Boxing gym | — | — |
-| TBD | Nonprofit | — | — |
+No partners named yet. Add 1 row per partner when Adam names one.
 
 ---
 
